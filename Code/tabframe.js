@@ -3,7 +3,7 @@ define([
     "dcl/dcl",
     "./types",
     "./base"
-], function (dcl, wcDocker, base) {
+], function(dcl, wcDocker, base) {
 
     /**
      * @class
@@ -44,6 +44,8 @@ define([
 
             this._boundEvents = [];
 
+            this._removeCallback = null;
+
             this.__init();
         },
 
@@ -55,17 +57,21 @@ define([
          * Manually update the contents of this tab frame.
          * @function module:wcTabFrame#update
          */
-        update: function () {
+        update: function() {
             var scrollTop = this.$center.scrollTop();
             this.__updateTabs();
             this.$center.scrollTop(scrollTop);
+        },
+
+        setRemoveCallback: function(callback) {
+            this._removeCallback = callback
         },
 
         /**
          * Destroys the widget.
          * @function module:wcTabFrame#destroy
          */
-        destroy: function () {
+        destroy: function() {
             this.__destroy();
         },
 
@@ -75,7 +81,7 @@ define([
          * @function module:wcTabFrame#tabCount
          * @returns {Number}
          */
-        tabCount: function () {
+        tabCount: function() {
             return this._layoutList.length;
         },
 
@@ -86,7 +92,7 @@ define([
          * @param {module:wcDocker.TAB} [orientation] - Assigns the orientation of the tab items displayed.
          * @returns {module:wcDocker.TAB} - The current orientation.
          */
-        tabOrientation: function (orientation) {
+        tabOrientation: function(orientation) {
             if (orientation !== undefined) {
                 if (this._tabOrientation !== orientation && this.docker()._canOrientTabs) {
                     this._tabOrientation = orientation;
@@ -107,9 +113,9 @@ define([
          * @param {module:wcDocker.LAYOUT} [layout] - If supplied, will set the type of layout to use for this tab.
          * @returns {module:wcLayoutSimple|wcLayoutTable} - The layout of the newly created tab page.
          */
-        addTab: function (name, index, layout) {
+        addTab: function(name, index, layout) {
             var layoutClass = layout || 'wcLayoutTable';
-            var newLayout = new (this.docker().__getClass(layoutClass))('.wcDockerTransition', this._parent);
+            var newLayout = new(this.docker().__getClass(layoutClass))('.wcDockerTransition', this._parent);
             newLayout.name = name;
             newLayout._scrollable = {
                 x: true,
@@ -143,9 +149,12 @@ define([
          * @param {Number} index - The tab page index to remove.
          * @returns {Boolean} - Success or failure.
          */
-        removeTab: function (index) {
+        removeTab: function(index) {
             if (index > -1 && index < this._layoutList.length) {
                 var name = this._layoutList[index].name;
+                if (this._removeCallback && !this._removeCallback({ obj: this, name: name, index: index, layout: this._layoutList[index] })) {
+                    return false
+                }
                 this._layoutList[index].__destroy();
                 this._layoutList.splice(index, 1);
 
@@ -158,7 +167,7 @@ define([
                 }
 
                 this.__updateTabs();
-                this._parent.__trigger(wcDocker.EVENT.CUSTOM_TAB_CLOSED, {obj: this, name: name, index: index});
+                this._parent.__trigger(wcDocker.EVENT.CUSTOM_TAB_CLOSED, { obj: this, name: name, index: index });
                 return true;
             }
             return false;
@@ -171,7 +180,7 @@ define([
          * @param {Boolean} [scrollTo] - If true, will auto scroll the tab bar until the selected tab is visible.
          * @returns {Number} - The index of the currently visible tab page.
          */
-        tab: function (index, scrollTo) {
+        tab: function(index, scrollTo) {
             if (typeof index !== 'undefined') {
                 if (index > -1 && index < this._layoutList.length) {
                     this.$tabBar.find('> .wcTabScroller > .wcPanelTab[id="' + this._curTab + '"]').removeClass('wcPanelTabActive');
@@ -182,7 +191,7 @@ define([
                     this.__updateTabs(scrollTo);
 
                     var name = this._layoutList[this._curTab].name;
-                    this._parent.__trigger(wcDocker.EVENT.CUSTOM_TAB_CHANGED, {obj: this, name: name, index: index});
+                    this._parent.__trigger(wcDocker.EVENT.CUSTOM_TAB_CHANGED, { obj: this, name: name, index: index });
                 }
             }
 
@@ -195,7 +204,7 @@ define([
          * @param {Number} index - The tab page index to retrieve.
          * @returns {module:wcLayoutSimple|wcLayoutTable|Boolean} - The layout of the found tab page, or false.
          */
-        layout: function (index) {
+        layout: function(index) {
             if (index > -1 && index < this._layoutList.length) {
                 return this._layoutList[index];
             }
@@ -209,7 +218,7 @@ define([
          * @param {Number} toIndex - The new tab page index to move to.
          * @returns {external:jQuery~Object} - The new element of the moved tab, or false if an error occurred.
          */
-        moveTab: function (fromIndex, toIndex) {
+        moveTab: function(fromIndex, toIndex) {
             if (fromIndex >= 0 && fromIndex < this._layoutList.length &&
                 toIndex >= 0 && toIndex < this._layoutList.length) {
                 var panel = this._layoutList.splice(fromIndex, 1);
@@ -233,7 +242,7 @@ define([
          * @param {Boolean} [moveable] - If supplied, assigns whether tab pages can be reordered.
          * @returns {Boolean} - Whether tab pages are currently moveable.
          */
-        moveable: function (moveable) {
+        moveable: function(moveable) {
             if (typeof moveable !== 'undefined') {
                 this._moveable = moveable;
             }
@@ -247,7 +256,7 @@ define([
          * @param {Boolean} [closeable] - If supplied, assigns whether the tab page can be closed.
          * @returns {Boolean} - Whether the tab page can be closed.
          */
-        closeable: function (index, closeable) {
+        closeable: function(index, closeable) {
             if (index > -1 && index < this._layoutList.length) {
                 var layout = this._layoutList[index];
 
@@ -255,6 +264,7 @@ define([
                     layout._closeable = closeable;
                 }
 
+                this.__updateTabs();
                 return layout._closeable;
             }
             return false;
@@ -268,7 +278,7 @@ define([
          * @param {Boolean} [y] - If supplied, assigns whether the tab page is scrollable in the vertical direction.
          * @returns {module:wcDocker~Scrollable} - The current scrollable status of the tab page.
          */
-        scrollable: function (index, x, y) {
+        scrollable: function(index, x, y) {
             if (index > -1 && index < this._layoutList.length) {
                 var layout = this._layoutList[index];
 
@@ -302,7 +312,7 @@ define([
          * @param {Boolean} [visible] - If supplied, assigns whether overflow is visible.
          * @returns {Boolean} - The current overflow visiblity status of the tab page.
          */
-        overflowVisible: function (index, visible) {
+        overflowVisible: function(index, visible) {
             if (index > -1 && index < this._layoutList.length) {
                 var layout = this._layoutList[index];
 
@@ -324,7 +334,7 @@ define([
          * @param {Boolean} [y] - If supplied, assigns whether the tab page is scrollable in the vertical direction.
          * @returns {module:wcDocker~FitContents} - The current scrollable status of the tab page.
          */
-        fitContents: function (index, x, y) {
+        fitContents: function(index, x, y) {
             if (index > -1 && index < this._layoutList.length) {
                 var layout = this._layoutList[index];
 
@@ -363,7 +373,7 @@ define([
          * @param {Number} index - The index of the tab item.
          * @param {String} icon - A CSS class name that represents the icon.
          */
-        icon: function (index, icon) {
+        icon: function(index, icon) {
             if (index > -1 && index < this._layoutList.length) {
                 var layout = this._layoutList[index];
 
@@ -382,7 +392,7 @@ define([
          * @param {Number} index - The index of the tab item.
          * @param {String} icon - A [Font-Awesome]{@link http://fortawesome.github.io/Font-Awesome/} icon name (without the 'fa fa-' prefix).
          */
-        faicon: function (index, icon) {
+        faicon: function(index, icon) {
             if (index > -1 && index < this._layoutList.length) {
                 var layout = this._layoutList[index];
 
@@ -396,12 +406,12 @@ define([
         },
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
-// Private Functions
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Private Functions
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
         // Initialize
-        __init: function () {
+        __init: function() {
             this.$frame = $('<div class="wcCustomTab wcWide wcTall">');
             this.$tabBar = $('<div class="wcFrameTitleBar wcCustomTabTitle wcWide">');
             this.$tabScroll = $('<div class="wcTabScroller">');
@@ -425,8 +435,8 @@ define([
 
             this.__container(this.$container);
 
-            this._boundEvents.push({event: wcDocker.EVENT.UPDATED, handler: this.update.bind(this)});
-            this._boundEvents.push({event: wcDocker.EVENT.CLOSED, handler: this.destroy.bind(this)});
+            this._boundEvents.push({ event: wcDocker.EVENT.UPDATED, handler: this.update.bind(this) });
+            this._boundEvents.push({ event: wcDocker.EVENT.CLOSED, handler: this.destroy.bind(this) });
 
             for (var i = 0; i < this._boundEvents.length; ++i) {
                 this._parent.on(this._boundEvents[i].event, this._boundEvents[i].handler);
@@ -438,10 +448,10 @@ define([
             }
         },
 
-        __updateTabs: function (scrollTo) {
+        __updateTabs: function(scrollTo) {
             this.$tabScroll.empty();
 
-            var getOffset = function ($item) {
+            var getOffset = function($item) {
                 switch (this._tabOrientation) {
                     case wcDocker.TAB.BOTTOM:
                         return $item.offset().left;
@@ -459,7 +469,7 @@ define([
             var parentLeft = getOffset(this.$tabScroll);
             var self = this;
 
-            this.$center.children('.wcPanelTabContent').each(function () {
+            this.$center.children('.wcPanelTabContent').each(function() {
                 $(this).addClass('wcPanelTabContentHidden wcPanelTabUnused');
             });
 
@@ -525,7 +535,7 @@ define([
             }
 
             // Now remove all unused panel tabs.
-            this.$center.children('.wcPanelTabUnused').each(function () {
+            this.$center.children('.wcPanelTabUnused').each(function() {
                 $(this).remove();
             });
 
@@ -590,10 +600,10 @@ define([
                 this.$tabRight.remove();
             }
 
-            this.$tabScroll.stop().animate({left: -this._tabScrollPos + 'px'}, 'fast');
+            this.$tabScroll.stop().animate({ left: -this._tabScrollPos + 'px' }, 'fast');
         },
 
-        __onTabChange: function () {
+        __onTabChange: function() {
             var buttonSize = 0;
             var layout = this.layout(this._curTab);
             if (layout) {
@@ -660,7 +670,7 @@ define([
         },
 
         // Handles scroll notifications.
-        __scrolled: function () {
+        __scrolled: function() {
             var layout = this.layout(this._curTab);
             layout._scroll.x = this.$center.scrollLeft();
             layout._scroll.y = this.$center.scrollTop();
@@ -672,7 +682,7 @@ define([
         //    parent              If supplied, sets a new parent for this layout.
         // Returns:
         //    JQuery collection   The current container.
-        __container: function ($container) {
+        __container: function($container) {
             if (typeof $container === 'undefined') {
                 return this.$container;
             }
@@ -687,7 +697,7 @@ define([
         },
 
         // Disconnects and prepares this widget for destruction.
-        __destroy: function () {
+        __destroy: function() {
             var docker = this.docker();
             if (docker) {
                 var index = docker._tabList.indexOf(this);
